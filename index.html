@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Body Systems</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    
+    <div id="top-panel">
+        <button id="prev-btn">&larr;</button>
+        <div id="carousel-display">Select a system</div>
+        <button id="next-btn">&rarr;</button>
+    </div>
+
+    <div id="bottom-section">
+        <div id="viewport">
+            <canvas id="three-canvas"></canvas>
+        </div>
+
+        <div id="right-panel">
+            <div id="system-tabs">
+            </div>
+            <div id="info-content"></div>
+        </div>
+    </div>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        const canvas = document.getElementById('three-canvas');
+        const viewport = document.getElementById('viewport');
+
+        //Scene
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0d0d1a);
+
+        //camera
+        const camera = new THREE.PerspectiveCamera(
+            50,
+            viewport.clientWidth / viewport.clientHeight,
+            0.1,
+            1000
+        );
+        camera.position.set(0, 0, 5);
+
+        //renderer
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        // OrbitControls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.enableZoom = true;
+        controls.enablePan = true;
+
+        //Lighting
+
+        //ambient light
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        //main directional light
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        directionalLight.position.set(5, 10, 7);
+        scene.add(directionalLight);
+
+        //back light to brighten darker rear faces
+        const backLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        backLight.position.set(-5, -5, -3);
+        scene.add(backLight);
+
+        //soft fill light for better overall exposure
+        const fillLight = new THREE.HemisphereLight(0x8888ff, 0x222222, 0.35);
+        scene.add(fillLight);
+
+        const loader = new GLTFLoader();
+        const systemFiles = {
+            'Muscular': 'models/Muscular.glb',
+            'Integumentary': 'models/Integumentary.glb',
+            'Skeletal': 'models/Skeletal.glb',
+            'Nervous': 'models/Nervous.glb',
+            'Lymphatic': 'models/Lymphatic.glb',
+            'Circulatory': 'models/Circulatory.glb',
+            'Respiratory': 'models/Respiratory.glb',
+            'Digestive': 'models/Digestive.glb',
+            'Endocrine': 'models/Endocrine.glb',
+            'Immune': 'models/Spleen.glb',
+            'Excretory': 'models/Excretory.glb'
+        };
+       
+        window.loadedModels = {};
+        window.modelsReady = false;
+        window.selectedSystem = window.selectedSystem || 'Nervous';
+
+        function loadModel(name, file) {
+            return new Promise((resolve, reject) => {
+                const fileUrl = new URL(file, import.meta.url).href;
+                const lowercaseFile = file.toLowerCase();
+                const lowercaseUrl = new URL(lowercaseFile, import.meta.url).href;
+                const basePath = fileUrl.slice(0, fileUrl.lastIndexOf('/') + 1);
+
+                function createModel(gltf) {
+                    const model = gltf.scene;
+                    const root = new THREE.Group();
+                    root.add(model);
+                    root.updateMatrixWorld(true);
+
+                    const box = new THREE.Box3().setFromObject(root);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    const scale = 4 / maxDim;
+
+                    root.scale.setScalar(scale);
+                    root.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
+                    root.visible = false;
+                    scene.add(root);
+                    window.loadedModels[name] = root;
+                    if (window.selectedSystem === name) {
+                        root.visible = true;
+                    }
+                    resolve(name);
+                }
+
+                function parseWithFetch(attemptUrl, fallbackUrl, err) {
+                    console.warn(`Loader network failed for ${name} at ${attemptUrl}. Trying fetch fallback...`, err);
+                    fetch(attemptUrl)
+                        .then(response => {
+                            if (!response.ok) throw new Error(`Fetch failed ${response.status}`);
+                            return response.text();
+                        })
+                        .then(text => new Promise((resolveParse, rejectParse) => {
+                            loader.parse(text, basePath, gltf => resolveParse(gltf), rejectParse);
+                        }))
+                        .then(createModel)
+                        .catch(fetchErr => {
+                            console.error(`Fetch fallback failed for ${name} at ${attemptUrl}:`, fetchErr);
+                            if (attemptUrl !== fallbackUrl) {
+                                parseWithFetch(fallbackUrl, attemptUrl, fetchErr);
+                            } else {
+                                reject({ name, err: fetchErr, fileUrl: attemptUrl });
+                            }
+                        });
+                }
+
+                function handleError(err, attemptedUrl) {
+                    console.error(`Error loading ${name} model from ${attemptedUrl}:`, err);
+                    if (attemptedUrl !== lowercaseUrl && lowercaseUrl !== fileUrl) {
+                        console.warn(`Retrying ${name} model with lowercase path: ${lowercaseUrl}`);
+                        loader.load(lowercaseUrl, createModel, undefined, (secondErr) => {
+                            console.error(`Error loading ${name} model from ${lowercaseUrl}:`, secondErr);
+                            parseWithFetch(fileUrl, lowercaseUrl, secondErr);
+                        });
+                    } else {
+                        parseWithFetch(attemptedUrl, lowercaseUrl, err);
+                    }
+                }
+
+                loader.load(fileUrl, createModel, undefined, (err) => handleError(err, fileUrl));
+            });
+        }
+
+        async function loadAllModels() {
+            const loadPromises = Object.entries(systemFiles).map(([name, file]) => loadModel(name, file));
+            const results = await Promise.allSettled(loadPromises);
+            const loadedNames = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+            const failed = results.filter(r => r.status === 'rejected').map(r => r.reason);
+            console.log('Models loaded:', loadedNames);
+            if (failed.length) {
+                console.warn('Model load failures:', failed);
+                const infoContent = document.getElementById('info-content');
+                if (infoContent) {
+                    infoContent.insertAdjacentHTML('beforeend', `<p style="color:#f0a; font-size:13px; margin-top:12px;">Warning: some models failed to load. Open DevTools console for details.</p>`);
+                }
+            }
+            window.modelsReady = true;
+            if (window.selectedSystem && window.showModel) {
+                window.showModel(window.selectedSystem);
+            }
+        }
+        loadAllModels();
+
+        //resize handler
+        window.addEventListener('resize', () => {
+            const width = viewport.clientWidth;
+            const height = viewport.clientHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        });
+
+
+        //render loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        } 
+        animate();
+
+        console.log('Three.js setup complete');
+        </script>
+        
+    <script src="script.js"></script>
+    
+</body>
+</html>       
