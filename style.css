@@ -218,27 +218,55 @@ body {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+    body {
+        overflow: auto;
+    }
+
     #bottom-section {
         flex-direction: column;
+        flex: none;
+        overflow: visible;
     }
-    
-    #right-panel {
-        width: 100%;
-        height: 300px;
-    }
-    
-    #viewport {
-        height: 50vh;
-        border-right: none;
-        border-bottom: 1px solid #2a2a4a;
-    }
-    
+
     #top-panel {
+        order: 1;
         padding: 10px 15px;
         min-height: 50px;
     }
-    
-    #system-title {
-        font-size: 16px;
+
+    #viewport {
+        order: 2;
+        width: 100%;
+        min-height: 45vh;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #2a2a4a;
+    }
+
+    #right-panel {
+        order: 3;
+        width: 100%;
+        min-height: 260px;
+        height: auto;
+        box-shadow: none;
+    }
+
+    #info-content {
+        max-height: 40vh;
+    }
+
+    #system-tabs {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    #top-panel,
+    #right-panel,
+    #viewport {
+        border-radius: 0;
+    }
+
+    #carousel-display {
+        font-size: 20px;
     }
 }
