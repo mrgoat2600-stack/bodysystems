@@ -219,23 +219,25 @@ body {
 /* Responsive Design */
 @media (max-width: 768px) {
     body {
-        overflow: auto;
+        min-height: 100vh;
+        overflow-x: hidden;
     }
 
     #bottom-section {
+        order: 1;
         flex-direction: column;
-        flex: none;
+        flex: 1 1 auto;
+        min-height: calc(100vh - 50px);
         overflow: visible;
     }
 
     #top-panel {
-        order: 1;
+        order: 0;
         padding: 10px 15px;
         min-height: 50px;
     }
 
     #viewport {
-        order: 2;
         width: 100%;
         min-height: 45vh;
         height: auto;
@@ -244,7 +246,6 @@ body {
     }
 
     #right-panel {
-        order: 3;
         width: 100%;
         min-height: 260px;
         height: auto;
